@@ -27,18 +27,18 @@ jobs:
           cd ~/esp
           git clone -b v1.22.1 --recursive https://github.com/micropython/micropython.git
 
-      - name: Create ESP32-S3 ZERO board files
+      - name: Create ESP32-S3 ZERO board (inherits from GENERIC_S3)
         run: |
           mkdir -p ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO
 
-          printf "BOARDNAME = ESP32_S3_ZERO\nFLASH_SIZE = 4MB\nFLASH_MODE = qio\nFLASH_FREQ = 80m\nSDKCONFIG_OVERRIDES = sdkconfig.board\n" \
+          printf "include(\${CMAKE_CURRENT_LIST_DIR}/../ESP32_GENERIC_S3/mpconfigboard.mk)\n" \
             > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
+
+          printf "set(MICROPY_BOARD ESP32_S3_ZERO)\nset(IDF_TARGET esp32s3)\n" \
+            > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.cmake
 
           printf "CONFIG_ESP32S3_CAN_SUPPORTED=y\nCONFIG_SOC_TWAI_SUPPORTED=y\nCONFIG_TWAI_ISR_IN_IRAM=y\nCONFIG_TWAI_SUPPRESS_FEATURE_WARNINGS=y\nCONFIG_ESPTOOLPY_FLASHMODE_QIO=y\nCONFIG_ESPTOOLPY_FLASHFREQ_80M=y\nCONFIG_ESPTOOLPY_FLASHSIZE_4MB=y\n" \
             > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
-
-          printf "set(MICROPY_BOARD ESP32_S3_ZERO)\nset(IDF_TARGET esp32s3)\nset(SDKCONFIG_DEFAULTS sdkconfig.board)\n" \
-            > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.cmake
 
       - name: Build mpy-cross
         run: |

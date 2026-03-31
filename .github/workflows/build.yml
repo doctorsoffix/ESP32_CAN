@@ -1,9 +1,6 @@
 name: Build MicroPython for ESP32-S3 ZERO (with TWAI CAN)
 
 on:
-  workflow_dispname: Build MicroPython for ESP32-S3 ZERO (with TWAI CAN)
-
-on:
   workflow_dispatch:
 
 jobs:
@@ -14,9 +11,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y git wget flex bison gperf python3 python3-pip \
-            python3-venv cmake ninja-build ccache libffi-dev libssl-dev \
-            dfu-util libusb-1.0-0
+          sudo apt install -y git wget flex bison gperf python3 python3-pip python3-venv \
+            cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
 
       - name: Clone ESP-IDF release/v5.1
         run: |
@@ -35,9 +31,7 @@ jobs:
         run: |
           mkdir -p ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO
 
-          echo "# Board name" > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
-          echo "BOARDNAME = ESP32_S3_ZERO" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
-          echo "" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
+          echo "BOARDNAME = ESP32_S3_ZERO" > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
           echo "FLASH_SIZE = 4MB" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
           echo "FLASH_MODE = qio" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
           echo "FLASH_FREQ = 80m" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
@@ -50,76 +44,6 @@ jobs:
           echo "CONFIG_ESPTOOLPY_FLASHMODE_QIO=y" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
           echo "CONFIG_ESPTOOLPY_FLASHFREQ_80M=y" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
           echo "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
-
-      - name: Build mpy-cross
-        run: |
-          cd ~/esp/micropython
-          make -C mpy-cross
-
-      - name: Build firmware
-        run: |
-          . ~/esp/esp-idf/export.sh
-          cd ~/esp/micropython/ports/esp32
-          make submodules
-          make BOARD=ESP32_S3_ZERO
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: micropython-esp32-s3-zero-can
-          path: ~/esp/micropython/ports/esp32/build-ESP32_S3_ZERO/firmware.bin
-atch:
-
-jobs:
-  build:
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y git wget flex bison gperf python3 python3-pip \
-            python3-venv cmake ninja-build ccache libffi-dev libssl-dev \
-            dfu-util libusb-1.0-0
-
-      - name: Clone ESP-IDF release/v5.1
-        run: |
-          mkdir -p ~/esp
-          cd ~/esp
-          git clone -b release/v5.1 --recursive https://github.com/espressif/esp-idf.git
-          cd esp-idf
-          ./install.sh esp32s3
-
-      - name: Clone MicroPython v1.22.1
-        run: |
-          cd ~/esp
-          git clone -b v1.22.1 --recursive https://github.com/micropython/micropython.git
-
-      - name: Auto-create ESP32-S3 ZERO board definition
-        run: |
-          mkdir -p ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO
-
-          cat << 'EOF' > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
-# Board name
-BOARDNAME = ESP32_S3_ZERO
-
-FLASH_SIZE = 4MB
-FLASH_MODE = qio
-FLASH_FREQ = 80m
-
-SDKCONFIG_OVERRIDES = sdkconfig.board
-EOF
-
-          cat << 'EOF' > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
-CONFIG_ESP32S3_CAN_SUPPORTED=y
-CONFIG_SOC_TWAI_SUPPORTED=y
-CONFIG_TWAI_ISR_IN_IRAM=y
-CONFIG_TWAI_SUPPRESS_FEATURE_WARNINGS=y
-
-CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
-CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
-CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-EOF
 
       - name: Build mpy-cross
         run: |

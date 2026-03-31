@@ -32,7 +32,7 @@ jobs:
         run: |
           mkdir -p ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO
 
-          printf "BOARDNAME = ESP32_S3_ZERO\nFLASH_SIZE = 4MB\nFLASH_MODE = qio\nFLASH_FREQ = 80m\nSDKCONFIG_OVERRIDES = sdkconfig.board\n" \
+          printf "BOARDNAME = ESP32_S3_ZERO\nFLASH_SIZE = 4MB\nFLASH_MODE = qio\nFLASH_FREQ = 80m\nSDKCONFIG_OVERRIDES = boards/ESP32_S3_ZERO/sdkconfig.board\n" \
             > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
 
           printf "set(MICROPY_BOARD ESP32_S3_ZERO)\nset(IDF_TARGET esp32s3)\nset(SDKCONFIG_DEFAULTS sdkconfig.board)\n" \

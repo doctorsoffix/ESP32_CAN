@@ -1,4 +1,4 @@
-name: Build MicroPython for ESP32-S3 ZERO (with PSRAM and CAN)
+name: Build MicroPython for ESP32-S3 ZERO (with PSRAM & CAN)
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ jobs:
           sudo apt install -y git wget flex bison gperf python3 python3-pip python3-venv \
             cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
 
-      - name: Clone ESP-IDF 5.1
+      - name: Clone ESP-IDF release/v5.1
         run: |
           mkdir -p ~/esp
           cd ~/esp
@@ -23,23 +23,63 @@ jobs:
           cd esp-idf
           ./install.sh esp32s3
 
-      - name: Clone MicroPython 1.22.1
+      - name: Clone MicroPython v1.22.1
         run: |
           cd ~/esp
           git clone -b v1.22.1 --recursive https://github.com/micropython/micropython.git
 
-      - name: Create ESP32-S3 ZERO (with PSRAM + CAN) board
+      - name: Create ESP32-S3 ZERO board definition (PSRAM + CAN)
         run: |
           mkdir -p ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO
 
-          printf "BOARDNAME = ESP32_S3_ZERO\nFLASH_SIZE = 4MB\nFLASH_MODE = qio\nFLASH_FREQ = 80m\nSDKCONFIG_OVERRIDES = boards/ESP32_S3_ZERO/sdkconfig.board\n" \
+          # ------- mpconfigboard.mk -------
+          printf "BOARDNAME = ESP32_S3_ZERO\n" \
             > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
+          printf "FLASH_SIZE = 4MB\nFLASH_MODE = qio\nFLASH_FREQ = 80m\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
+          printf "SDKCONFIG_OVERRIDES = boards/ESP32_S3_ZERO/sdkconfig.board\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
 
-          printf "set(MICROPY_BOARD ESP32_S3_ZERO)\nset(IDF_TARGET esp32s3)\nset(SDKCONFIG_DEFAULTS sdkconfig.board)\n" \
+          # ------- mpconfigboard.cmake -------
+          printf "set(MICROPY_BOARD ESP32_S3_ZERO)\n" \
             > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.cmake
+          printf "set(IDF_TARGET esp32s3)\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.cmake
+          printf "set(SDKCONFIG_DEFAULTS sdkconfig.board)\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.cmake
 
-          printf "CONFIG_ESP32S3_CAN_SUPPORTED=y\nCONFIG_SOC_TWAI_SUPPORTED=y\nCONFIG_TWAI_ISR_IN_IRAM=y\nCONFIG_TWAI_SUPPRESS_FEATURE_WARNINGS=y\nCONFIG_ESPTOOLPY_FLASHSIZE_4MB=y\nCONFIG_ESPTOOLPY_FLASHMODE_QIO=y\nCONFIG_ESPTOOLPY_FLASHFREQ_80M=y\nCONFIG_SPIRAM=y\nCONFIG_SPIRAM_MODE_OCT=y\nCONFIG_SPIRAM_TYPE_AUTO=y\nCONFIG_SPIRAM_SIZE=2097152\nCONFIG_SPIRAM_SPEED_80M=y\nCONFIG_SPIRAM_FETCH_INSTRUCTIONS=y\nCONFIG_SPIRAM_RODATA=y\nCONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=y\nCONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=32768\n" \
+          # ------- sdkconfig.board -------
+          printf "CONFIG_ESP32S3_CAN_SUPPORTED=y\n" \
             > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+          printf "CONFIG_SOC_TWAI_SUPPORTED=y\nCONFIG_TWAI_ISR_IN_IRAM=y\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+          printf "CONFIG_TWAI_SUPPRESS_FEATURE_WARNINGS=y\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+
+          printf "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+          printf "CONFIG_ESPTOOLPY_FLASHMODE_QIO=y\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+          printf "CONFIG_ESPTOOLPY_FLASHFREQ_80M=y\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+
+          # PSRAM (2MB, ESP32-FH4R2)
+          printf "CONFIG_SPIRAM=y\nCONFIG_ESP32S3_SPIRAM_SUPPORT=y\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+          printf "CONFIG_SPIRAM_MODE_OCT=y\nCONFIG_SPIRAM_TYPE_AUTO=y\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+          printf "CONFIG_SPIRAM_SIZE=2097152\nCONFIG_SPIRAM_SPEED_80M=y\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+          printf "CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y\nCONFIG_SPIRAM_RODATA=y\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+          printf "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=y\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+          printf "CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=32768\n" \
+            >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+
+          # ------- CRITICAL FIX: copy sdkconfig.board to root -------
+          cp ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board \
+             ~/esp/micropython/ports/esp32/sdkconfig.board
 
       - name: Build mpy-cross
         run: |

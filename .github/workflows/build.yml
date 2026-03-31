@@ -31,19 +31,34 @@ jobs:
         run: |
           mkdir -p ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO
 
-          echo "BOARDNAME = ESP32_S3_ZERO" > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
-          echo "FLASH_SIZE = 4MB" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
-          echo "FLASH_MODE = qio" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
-          echo "FLASH_FREQ = 80m" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
-          echo "SDKCONFIG_OVERRIDES = sdkconfig.board" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
+          # ---- mpconfigboard.mk ----
+          cat << 'EOF' > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
+BOARDNAME = ESP32_S3_ZERO
+FLASH_SIZE = 4MB
+FLASH_MODE = qio
+FLASH_FREQ = 80m
+SDKCONFIG_OVERRIDES = sdkconfig.board
+EOF
 
-          echo "CONFIG_ESP32S3_CAN_SUPPORTED=y" > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
-          echo "CONFIG_SOC_TWAI_SUPPORTED=y" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
-          echo "CONFIG_TWAI_ISR_IN_IRAM=y" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
-          echo "CONFIG_TWAI_SUPPRESS_FEATURE_WARNINGS=y" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
-          echo "CONFIG_ESPTOOLPY_FLASHMODE_QIO=y" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
-          echo "CONFIG_ESPTOOLPY_FLASHFREQ_80M=y" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
-          echo "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y" >> ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+          # ---- sdkconfig.board ----
+          cat << 'EOF' > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
+CONFIG_ESP32S3_CAN_SUPPORTED=y
+CONFIG_SOC_TWAI_SUPPORTED=y
+CONFIG_TWAI_ISR_IN_IRAM=y
+CONFIG_TWAI_SUPPRESS_FEATURE_WARNINGS=y
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+EOF
+
+          # ---- mpconfigboard.cmake (NEU, SEHR WICHTIG!) ----
+          cat << 'EOF' > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.cmake
+set(MICROPY_BOARD ESP32_S3_ZERO)
+set(IDF_TARGET esp32s3)
+
+# Activate CAN/TWAI driver
+set(SDKCONFIG_DEFAULTS sdkconfig.board)
+EOF
 
       - name: Build mpy-cross
         run: |

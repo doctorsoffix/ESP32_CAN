@@ -58,4 +58,3 @@ jobs:
         with:
           name: micropython-esp32-s3-zero-can
           path: ~/esp/micropython/ports/esp32/build-ESP32_S3_ZERO/firmware.bin
-``

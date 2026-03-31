@@ -31,34 +31,14 @@ jobs:
         run: |
           mkdir -p ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO
 
-          # ---- mpconfigboard.mk ----
-          cat << 'EOF' > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
-BOARDNAME = ESP32_S3_ZERO
-FLASH_SIZE = 4MB
-FLASH_MODE = qio
-FLASH_FREQ = 80m
-SDKCONFIG_OVERRIDES = sdkconfig.board
-EOF
+          printf "BOARDNAME = ESP32_S3_ZERO\nFLASH_SIZE = 4MB\nFLASH_MODE = qio\nFLASH_FREQ = 80m\nSDKCONFIG_OVERRIDES = sdkconfig.board\n" \
+            > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
 
-          # ---- sdkconfig.board ----
-          cat << 'EOF' > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
-CONFIG_ESP32S3_CAN_SUPPORTED=y
-CONFIG_SOC_TWAI_SUPPORTED=y
-CONFIG_TWAI_ISR_IN_IRAM=y
-CONFIG_TWAI_SUPPRESS_FEATURE_WARNINGS=y
-CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
-CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
-CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-EOF
+          printf "CONFIG_ESP32S3_CAN_SUPPORTED=y\nCONFIG_SOC_TWAI_SUPPORTED=y\nCONFIG_TWAI_ISR_IN_IRAM=y\nCONFIG_TWAI_SUPPRESS_FEATURE_WARNINGS=y\nCONFIG_ESPTOOLPY_FLASHMODE_QIO=y\nCONFIG_ESPTOOLPY_FLASHFREQ_80M=y\nCONFIG_ESPTOOLPY_FLASHSIZE_4MB=y\n" \
+            > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
 
-          # ---- mpconfigboard.cmake (NEU, SEHR WICHTIG!) ----
-          cat << 'EOF' > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.cmake
-set(MICROPY_BOARD ESP32_S3_ZERO)
-set(IDF_TARGET esp32s3)
-
-# Activate CAN/TWAI driver
-set(SDKCONFIG_DEFAULTS sdkconfig.board)
-EOF
+          printf "set(MICROPY_BOARD ESP32_S3_ZERO)\nset(IDF_TARGET esp32s3)\nset(SDKCONFIG_DEFAULTS sdkconfig.board)\n" \
+            > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.cmake
 
       - name: Build mpy-cross
         run: |

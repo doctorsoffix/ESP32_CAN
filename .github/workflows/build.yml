@@ -46,6 +46,14 @@ jobs:
           sed -i 's/mp_raise_msg_varg(&\([^,]*\), "\([^"]*\)"/mp_raise_msg_varg(\&\1, MP_ERROR_TEXT("\2")/g' mod_can.c
           echo "Patch complete"
 
+      - name: Enable USB-CDC console for ESP32-S3-Zero
+        run: |
+          cd $HOME/micropython/ports/esp32/boards/ESP32_GENERIC_S3
+          # Append USB console config (no leading spaces!)
+          printf '\nCONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y\nCONFIG_ESP_CONSOLE_SECONDARY_NONE=y\n' >> sdkconfig.board
+          echo "--- sdkconfig.board contents ---"
+          cat sdkconfig.board
+
       - name: Build mpy-cross
         run: |
           cd $HOME/micropython
@@ -63,6 +71,9 @@ jobs:
           source $HOME/esp-idf/export.sh
           cd $HOME/micropython/ports/esp32
 
+          # Clean build to pick up sdkconfig changes
+          rm -rf build_ESP32_GENERIC_S3
+
           idf.py \
             -D MICROPY_BOARD=ESP32_GENERIC_S3 \
             -D USER_C_MODULES=../../../../cmodules/micropython-esp32-twai/src_can_v2/micropython.cmake \
@@ -78,7 +89,6 @@ jobs:
           source $HOME/esp-idf/export.sh
           cd $HOME/micropython/ports/esp32
 
-          # Create combined firmware.bin that can be flashed at offset 0x0
           esptool.py --chip esp32s3 merge_bin \
             -o build_ESP32_GENERIC_S3/firmware.bin \
             --flash_mode dio \
@@ -88,11 +98,8 @@ jobs:
             0x8000 build_ESP32_GENERIC_S3/partition_table/partition-table.bin \
             0x10000 build_ESP32_GENERIC_S3/micropython.bin
 
-          echo "--- Generated files ---"
           ls -lh build_ESP32_GENERIC_S3/firmware.bin
           ls -lh build_ESP32_GENERIC_S3/micropython.bin
-          ls -lh build_ESP32_GENERIC_S3/bootloader/bootloader.bin
-          ls -lh build_ESP32_GENERIC_S3/partition_table/partition-table.bin
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4

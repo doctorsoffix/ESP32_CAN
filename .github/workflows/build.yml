@@ -1,66 +1,84 @@
-name: Build MicroPython for ESP32-S3 ZERO (inherited, CAN+PSRAM)
+name: Build MicroPython + TWAI/CAN for ESP32-S3
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Manuell starten über GitHub UI
+  push:
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
-
       - name: Install dependencies
         run: |
-          sudo apt update
-          sudo apt install -y git wget flex bison gperf python3 python3-pip python3-venv \
-            cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
+          sudo apt-get update
+          sudo apt-get install -y git wget flex bison gperf python3 python3-pip \
+            python3-venv cmake ninja-build ccache libffi-dev libssl-dev dfu-util \
+            libusb-1.0-0
 
-      - name: Clone ESP-IDF release/v5.1
+      - name: Clone ESP-IDF v5.4.1
         run: |
-          mkdir -p ~/esp
-          cd ~/esp
-          git clone -b release/v5.1 --recursive https://github.com/espressif/esp-idf.git
+          cd $HOME
+          git clone -j8 -b v5.4.1 --recursive https://github.com/espressif/esp-idf.git esp-idf
           cd esp-idf
           ./install.sh esp32s3
+          echo "ESP-IDF v5.4.1 installed"
 
-      - name: Clone MicroPython v1.22.1
+      - name: Clone MicroPython
         run: |
-          cd ~/esp
-          git clone -b v1.22.1 --recursive https://github.com/micropython/micropython.git
+          cd $HOME
+          git clone --recursive https://github.com/micropython/micropython.git
+          echo "MicroPython cloned"
 
-      - name: Create ESP32-S3 ZERO override board
+      - name: Clone TWAI/CAN module
         run: |
-          mkdir -p ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO
-
-          # Inherit FULL board config
-          printf "include(\${CMAKE_CURRENT_LIST_DIR}/../ESP32_GENERIC_S3/mpconfigboard.mk)\n" \
-            > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.mk
-
-          printf "set(MICROPY_BOARD ESP32_S3_ZERO)\nset(IDF_TARGET esp32s3)\n" \
-            > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/mpconfigboard.cmake
-
-          # Override CAN + PSRAM + Flash
-          printf "CONFIG_ESP32S3_CAN_SUPPORTED=y\nCONFIG_SOC_TWAI_SUPPORTED=y\nCONFIG_TWAI_ISR_IN_IRAM=y\nCONFIG_SPIRAM=y\nCONFIG_ESP32S3_SPIRAM_SUPPORT=y\nCONFIG_SPIRAM_TYPE_AUTO=y\nCONFIG_SPIRAM_SIZE=2097152\nCONFIG_ESPTOOLPY_FLASHSIZE_4MB=y\n" \
-            > ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board
-
-          # Required by MicroPython build system:
-          cp ~/esp/micropython/ports/esp32/boards/ESP32_S3_ZERO/sdkconfig.board \
-             ~/esp/micropython/ports/esp32/sdkconfig.board
+          cd $HOME
+          mkdir -p cmodules
+          cd cmodules
+          git clone https://github.com/straga/micropython-esp32-twai.git
+          echo "TWAI/CAN module cloned"
+          echo "--- Directory structure ---"
+          ls -la micropython-esp32-twai/src_can_v2/
 
       - name: Build mpy-cross
         run: |
-          cd ~/esp/micropython
-          make -C mpy-cross
+          cd $HOME/micropython
+          make -C mpy-cross -j$(nproc)
+          echo "--- mpy-cross built ---"
+          ls -lh mpy-cross/build/mpy-cross
 
-      - name: Build firmware
+      - name: Build submodules
         run: |
-          . ~/esp/esp-idf/export.sh
-          cd ~/esp/micropython/ports/esp32
+          source $HOME/esp-idf/export.sh
+          cd $HOME/micropython/ports/esp32
+          rm -f *.lock
           make submodules
-          make BOARD=ESP32_S3_ZERO
+          echo "--- Submodules ready ---"
 
-      - name: Upload artifact
+      - name: Build MicroPython with TWAI/CAN
+        run: |
+          source $HOME/esp-idf/export.sh
+          cd $HOME/micropython/ports/esp32
+          idf.py \
+            -D MICROPY_BOARD=ESP32_GENERIC_S3 \
+            -D USER_C_MODULES=../../../../cmodules/micropython-esp32-twai/src_can_v2/micropython.cmake \
+            -B build_ESP32_GENERIC_S3 \
+            build
+          echo ""
+          echo "============================================"
+          echo " BUILD COMPLETE"
+          echo "============================================"
+          ls -lh build_ESP32_GENERIC_S3/micropython.bin 2>/dev/null || true
+          ls -lh build_ESP32_GENERIC_S3/firmware.bin 2>/dev/null || true
+
+      - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: micropython-esp32-s3-zero-can
-          path: ~/esp/micropython/ports/esp32/build-ESP32_S3_ZERO/firmware.bin
+          name: micropython-esp32s3-twai-firmware
+          path: |
+            ~/micropython/ports/esp32/build_ESP32_GENERIC_S3/firmware.bin
+            ~/micropython/ports/esp32/build_ESP32_GENERIC_S3/micropython.bin
+            ~/micropython/ports/esp32/build_ESP32_GENERIC_S3/bootloader/bootloader.bin
+            ~/micropython/ports/esp32/build_ESP32_GENERIC_S3/partition_table/partition-table.bin
+          if-no-files-found: error

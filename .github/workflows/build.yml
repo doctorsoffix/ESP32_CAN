@@ -1,7 +1,7 @@
 name: Build MicroPython + TWAI/CAN for ESP32-S3
 
 on:
-  workflow_dispatch:  # Manuell starten über GitHub UI
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -38,14 +38,12 @@ jobs:
           cd cmodules
           git clone https://github.com/straga/micropython-esp32-twai.git
           echo "TWAI/CAN module cloned"
-          echo "--- Directory structure ---"
           ls -la micropython-esp32-twai/src_can_v2/
 
       - name: Build mpy-cross
         run: |
           cd $HOME/micropython
           make -C mpy-cross -j$(nproc)
-          echo "--- mpy-cross built ---"
           ls -lh mpy-cross/build/mpy-cross
 
       - name: Build submodules
@@ -54,25 +52,46 @@ jobs:
           cd $HOME/micropython/ports/esp32
           rm -f *.lock
           make submodules
-          echo "--- Submodules ready ---"
 
       - name: Build MicroPython with TWAI/CAN
         run: |
           source $HOME/esp-idf/export.sh
           cd $HOME/micropython/ports/esp32
+
           idf.py \
             -D MICROPY_BOARD=ESP32_GENERIC_S3 \
             -D USER_C_MODULES=../../../../cmodules/micropython-esp32-twai/src_can_v2/micropython.cmake \
             -B build_ESP32_GENERIC_S3 \
-            build
+            build \
+          || {
+            echo ""
+            echo "============================================"
+            echo " BUILD FAILED - Dumping logs"
+            echo "============================================"
+            echo ""
+            echo "--- STDERR logs ---"
+            for f in build_ESP32_GENERIC_S3/log/idf_py_stderr_output_*; do
+              echo "=== $f ==="
+              cat "$f"
+            done
+            echo ""
+            echo "--- STDOUT logs ---"
+            for f in build_ESP32_GENERIC_S3/log/idf_py_stdout_output_*; do
+              echo "=== $f ==="
+              cat "$f"
+            done
+            exit 1
+          }
+
           echo ""
           echo "============================================"
           echo " BUILD COMPLETE"
           echo "============================================"
-          ls -lh build_ESP32_GENERIC_S3/micropython.bin 2>/dev/null || true
           ls -lh build_ESP32_GENERIC_S3/firmware.bin 2>/dev/null || true
+          ls -lh build_ESP32_GENERIC_S3/micropython.bin 2>/dev/null || true
 
       - name: Upload firmware
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: micropython-esp32s3-twai-firmware
@@ -82,3 +101,11 @@ jobs:
             ~/micropython/ports/esp32/build_ESP32_GENERIC_S3/bootloader/bootloader.bin
             ~/micropython/ports/esp32/build_ESP32_GENERIC_S3/partition_table/partition-table.bin
           if-no-files-found: error
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-error-logs
+          path: ~/micropython/ports/esp32/build_ESP32_GENERIC_S3/log/
+          if-no-files-found: warn

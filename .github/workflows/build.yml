@@ -38,21 +38,13 @@ jobs:
 
       - name: Patch mod_can.c for MicroPython v1.25+
         run: |
-          # MicroPython v1.25 requires MP_ERROR_TEXT() macro for error strings.
-          # The TWAI module uses raw string literals which causes build errors.
           cd $HOME/cmodules/micropython-esp32-twai/src_can_v2
-          
-          echo "--- Patching mod_can.c for MP_ERROR_TEXT() compatibility ---"
-          
-          # Replace all bare string literals in mp_raise_* and mp_raise_msg* calls
           sed -i 's/mp_raise_NotImplementedError("\([^"]*\)")/mp_raise_NotImplementedError(MP_ERROR_TEXT("\1"))/g' mod_can.c
           sed -i 's/mp_raise_TypeError("\([^"]*\)")/mp_raise_TypeError(MP_ERROR_TEXT("\1"))/g' mod_can.c
           sed -i 's/mp_raise_ValueError("\([^"]*\)")/mp_raise_ValueError(MP_ERROR_TEXT("\1"))/g' mod_can.c
           sed -i 's/mp_raise_msg(&\([^,]*\), "\([^"]*\)")/mp_raise_msg(\&\1, MP_ERROR_TEXT("\2"))/g' mod_can.c
           sed -i 's/mp_raise_msg_varg(&\([^,]*\), "\([^"]*\)"/mp_raise_msg_varg(\&\1, MP_ERROR_TEXT("\2")/g' mod_can.c
-          
-          echo "--- Patch complete. Verifying no bare strings remain in mp_raise calls ---"
-          grep -n 'mp_raise.*"' mod_can.c | grep -v 'MP_ERROR_TEXT' || echo "All strings patched successfully!"
+          echo "Patch complete"
 
       - name: Build mpy-cross
         run: |
@@ -75,28 +67,34 @@ jobs:
             -D MICROPY_BOARD=ESP32_GENERIC_S3 \
             -D USER_C_MODULES=../../../../cmodules/micropython-esp32-twai/src_can_v2/micropython.cmake \
             -B build_ESP32_GENERIC_S3 \
-            build \
-          || {
-            echo "============================================"
-            echo " BUILD FAILED - Dumping logs"
-            echo "============================================"
-            for f in build_ESP32_GENERIC_S3/log/idf_py_stderr_output_*; do
-              [ -f "$f" ] && echo "=== $f ===" && cat "$f"
-            done
-            for f in build_ESP32_GENERIC_S3/log/idf_py_stdout_output_*; do
-              [ -f "$f" ] && echo "=== $f ===" && tail -100 "$f"
-            done
-            exit 1
-          }
+            build
 
           echo "============================================"
           echo " BUILD COMPLETE"
           echo "============================================"
+
+      - name: Generate combined firmware.bin
+        run: |
+          source $HOME/esp-idf/export.sh
+          cd $HOME/micropython/ports/esp32
+
+          # Create combined firmware.bin that can be flashed at offset 0x0
+          esptool.py --chip esp32s3 merge_bin \
+            -o build_ESP32_GENERIC_S3/firmware.bin \
+            --flash_mode dio \
+            --flash_size 4MB \
+            --flash_freq 80m \
+            0x0 build_ESP32_GENERIC_S3/bootloader/bootloader.bin \
+            0x8000 build_ESP32_GENERIC_S3/partition_table/partition-table.bin \
+            0x10000 build_ESP32_GENERIC_S3/micropython.bin
+
+          echo "--- Generated files ---"
           ls -lh build_ESP32_GENERIC_S3/firmware.bin
           ls -lh build_ESP32_GENERIC_S3/micropython.bin
+          ls -lh build_ESP32_GENERIC_S3/bootloader/bootloader.bin
+          ls -lh build_ESP32_GENERIC_S3/partition_table/partition-table.bin
 
       - name: Upload firmware
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: micropython-esp32s3-twai-firmware

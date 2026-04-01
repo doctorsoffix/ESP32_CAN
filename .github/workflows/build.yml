@@ -24,10 +24,15 @@ jobs:
           cd esp-idf
           ./install.sh esp32s3
 
-      - name: Clone MicroPython
+      - name: Clone MicroPython v1.25.0
         run: |
           cd $HOME
           git clone --recursive https://github.com/micropython/micropython.git
+          cd micropython
+          git checkout v1.25.0
+          git submodule update --init --recursive
+          echo "MicroPython version:"
+          git describe --tags
 
       - name: Clone TWAI/CAN module
         run: |
@@ -36,7 +41,7 @@ jobs:
           cd cmodules
           git clone https://github.com/straga/micropython-esp32-twai.git
 
-      - name: Patch mod_can.c for MicroPython v1.25+
+      - name: Patch mod_can.c for MicroPython v1.25
         run: |
           cd $HOME/cmodules/micropython-esp32-twai/src_can_v2
           sed -i 's/mp_raise_NotImplementedError("\([^"]*\)")/mp_raise_NotImplementedError(MP_ERROR_TEXT("\1"))/g' mod_can.c
@@ -49,9 +54,7 @@ jobs:
       - name: Enable USB-CDC console for ESP32-S3-Zero
         run: |
           cd $HOME/micropython/ports/esp32/boards/ESP32_GENERIC_S3
-          # Append USB console config (no leading spaces!)
           printf '\nCONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y\nCONFIG_ESP_CONSOLE_SECONDARY_NONE=y\n' >> sdkconfig.board
-          echo "--- sdkconfig.board contents ---"
           cat sdkconfig.board
 
       - name: Build mpy-cross
@@ -70,9 +73,6 @@ jobs:
         run: |
           source $HOME/esp-idf/export.sh
           cd $HOME/micropython/ports/esp32
-
-          # Clean build to pick up sdkconfig changes
-          rm -rf build_ESP32_GENERIC_S3
 
           idf.py \
             -D MICROPY_BOARD=ESP32_GENERIC_S3 \

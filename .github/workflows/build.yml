@@ -51,11 +51,32 @@ jobs:
           sed -i 's/mp_raise_msg_varg(&\([^,]*\), "\([^"]*\)"/mp_raise_msg_varg(\&\1, MP_ERROR_TEXT("\2")/g' mod_can.c
           echo "Patch complete"
 
-      - name: Enable USB-CDC console for ESP32-S3-Zero
+      - name: Configure board for ESP32-S3-Zero (4MB Flash, USB console)
         run: |
           cd $HOME/micropython/ports/esp32/boards/ESP32_GENERIC_S3
-          printf '\nCONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y\nCONFIG_ESP_CONSOLE_SECONDARY_NONE=y\n' >> sdkconfig.board
+
+          # Create custom partition table for 4MB flash
+          cat > partitions_4mb.csv << 'PARTCSV'
+          # Name,   Type, SubType, Offset,  Size,    Flags
+          nvs,      data, nvs,     0x9000,  0x6000,
+          phy_init, data, phy,     0xf000,  0x1000,
+          factory,  app,  factory, 0x10000, 0x1F0000,
+          vfs,      data, fat,     0x200000,0x200000,
+          PARTCSV
+
+          # Override sdkconfig for 4MB flash + USB console
+          cat > sdkconfig.board << 'SDKCFG'
+          CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+          CONFIG_PARTITION_TABLE_CUSTOM=y
+          CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="boards/ESP32_GENERIC_S3/partitions_4mb.csv"
+          CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+          CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+          SDKCFG
+
+          echo "--- sdkconfig.board ---"
           cat sdkconfig.board
+          echo "--- partitions_4mb.csv ---"
+          cat partitions_4mb.csv
 
       - name: Build mpy-cross
         run: |
@@ -74,11 +95,23 @@ jobs:
           source $HOME/esp-idf/export.sh
           cd $HOME/micropython/ports/esp32
 
+          rm -rf build_ESP32_GENERIC_S3
+
           idf.py \
             -D MICROPY_BOARD=ESP32_GENERIC_S3 \
             -D USER_C_MODULES=../../../../cmodules/micropython-esp32-twai/src_can_v2/micropython.cmake \
             -B build_ESP32_GENERIC_S3 \
-            build
+            build \
+          || {
+            echo "BUILD FAILED - Dumping logs"
+            for f in build_ESP32_GENERIC_S3/log/idf_py_stderr_output_*; do
+              [ -f "$f" ] && cat "$f"
+            done
+            for f in build_ESP32_GENERIC_S3/log/idf_py_stdout_output_*; do
+              [ -f "$f" ] && tail -50 "$f"
+            done
+            exit 1
+          }
 
           echo "============================================"
           echo " BUILD COMPLETE"
